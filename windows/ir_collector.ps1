@@ -1,13 +1,50 @@
 # ============================================================
 # DreadWatch Blue Team - Windows IR Evidence Collector
-# Captures evidence for Incident Response reports:
-#   - Active sessions & logged-in users
-#   - Running processes (with paths - catches malware)
-#   - Network connections + attacker IPs
-#   - Recent event log entries (auth, process creation)
-#   - Scheduled tasks / startup entries
-#   - Modified files
-# Usage: Run as Administrator in PowerShell
+#
+# WHAT THIS SCRIPT DOES:
+#   Takes a complete point-in-time snapshot of this Windows
+#   machine's security state. Run this the moment you detect
+#   an attack to capture what the attacker is doing RIGHT NOW.
+#   Unlike ir_monitor.ps1 (which runs continuously), this is
+#   a one-shot script that captures everything at once.
+#   Collects:
+#     - All running processes with full paths (flags processes
+#       running from suspicious locations like \Temp\ or \AppData\)
+#     - All network connections with owning process
+#     - Currently logged-in users (query user)
+#     - Security event log: logins, failures, process creation
+#       (EventIDs 4624, 4625, 4648, 4688)
+#     - All scheduled tasks (check for attacker persistence)
+#     - Local users and Administrators group membership
+#     - Files modified in the last 2 hours
+#
+# HOW TO USE:
+#   Step 1 - Open PowerShell as Administrator.
+#
+#   Step 2 - Run it:
+#            Set-ExecutionPolicy Bypass -Scope Process -Force
+#            .\ir_collector.ps1
+#
+#   Step 3 - A summary prints to the screen automatically.
+#            Note the output directory path.
+#
+#   Step 4 - Review the evidence folder:
+#            C:\IR_EVIDENCE_<timestamp>\
+#            Key files:
+#              IR_SUMMARY.txt        <- Start here
+#              connected_ips.txt     <- Attacker IPs for IR report
+#              processes.txt         <- What was running
+#              auth_events.txt       <- Login history
+#              sessions.txt          <- Who was logged in
+#              scheduled_tasks.txt   <- Persistence check
+#
+#   Step 5 - Evidence is packaged as a .zip:
+#            C:\IR_EVIDENCE_<timestamp>.zip
+#
+#   Step 6 - Run generate_ir_report.ps1 to format this into
+#            a properly structured IR report for Discord.
+#
+# OUTPUT: C:\IR_EVIDENCE_<timestamp>\ and C:\IR_EVIDENCE_<timestamp>.zip
 # ============================================================
 
 $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"

@@ -1,8 +1,36 @@
 #!/bin/bash
 # ============================================================
 # DreadWatch Blue Team - Service Watchdog
-# Keeps scored services alive. Run in background or via cron.
-# Usage: bash service_watchdog.sh [hostname_override]
+#
+# WHAT THIS SCRIPT DOES:
+#   Runs as a background loop every 30 seconds. If any scored
+#   service goes down (killed by red team or crash), it
+#   automatically restarts it and logs the event.
+#   This protects your 50% uptime score.
+#
+# HOW TO USE:
+#   Step 1 - Start it in the background immediately after hardening:
+#            sudo bash service_watchdog.sh &
+#
+#   Step 2 - Confirm it's running:
+#            ps aux | grep service_watchdog
+#
+#   Step 3 - Watch its log in another terminal if you want live output:
+#            tail -f /var/log/blueteam_watchdog.log
+#
+#   Step 4 - It auto-detects which host it's on and monitors the
+#            correct services. No config needed.
+#
+#   Step 5 - Leave it running for the entire competition.
+#            Do NOT kill it.
+#
+# OPTIONAL - Override hostname if auto-detect fails:
+#   sudo bash service_watchdog.sh ballast
+#   sudo bash service_watchdog.sh silkroad
+#   sudo bash service_watchdog.sh poopdeck
+#   sudo bash service_watchdog.sh courier
+#
+# LOG FILE: /var/log/blueteam_watchdog.log
 # ============================================================
 
 LOGFILE="/var/log/blueteam_watchdog.log"

@@ -2,7 +2,47 @@
 # ============================================================
 # DreadWatch Blue Team - Linux Hardening Script
 # Targets: Ubuntu 18/20 (Ballast, SilkRoad), Debian 10 (PoopDeck), Fedora 31 (Courier)
-# Run as root. Safe to re-run.
+#
+# WHAT THIS SCRIPT DOES:
+#   1. Changes ALL known competition account passwords
+#   2. Locks any user accounts not in the known list
+#   3. Hardens SSH config (disables root login, limits auth tries)
+#   4. Sets up firewall rules specific to this host's scored services
+#   5. Removes suspicious cron jobs
+#   6. Lists SUID binaries for manual review
+#   7. Audits sudoers file
+#   8. Applies kernel-level network hardening (sysctl)
+#   9. Disables legacy dangerous services (telnet, rsh, etc.)
+#  10. Verifies elastic-agent is still running (don't remove it!)
+#
+# HOW TO USE:
+#   Step 1 - Pull from GitHub (do this first on every Linux box):
+#            git clone https://github.com/BadWolf1000/blue-team-scripts.git /opt/bt
+#            cd /opt/bt/linux && chmod +x *.sh
+#
+#   Step 2 - BEFORE running, set your team's password at the top of this file.
+#            Open the script and change: NEW_PASS="DreadWatch@2024!"
+#            to something your team decides. Write it down!
+#
+#   Step 3 - Run it:
+#            sudo bash harden_linux.sh
+#
+#   Step 4 - Review the output. Look for any [!] warnings.
+#            The script logs everything to /var/log/blueteam_harden_<timestamp>.log
+#
+#   Step 5 - Manually review the SUID file list printed at the end.
+#            Remove any SUID binaries that shouldn't be there.
+#
+#   Step 6 - Run this on EVERY Linux box during the first 30 minutes.
+#            Order: Ballast -> SilkRoad -> PoopDeck -> Courier
+#
+# SAFE TO RE-RUN: Yes. Running it again will re-apply all settings.
+#
+# HOSTS:
+#   Ballast   - Ubuntu 20  - 10.x.2.12 - FTP, SSH, VNC
+#   SilkRoad  - Ubuntu 18  - 10.x.2.10 - HTTP, MySQL, SSH
+#   PoopDeck  - Debian 10  - 10.x.1.11 - DNS, HTTP-WikiJS, SSH
+#   Courier   - Fedora 31  - 10.x.3.12 - HTTP-Roundcube, SMTP, SSH
 # ============================================================
 
 set -euo pipefail

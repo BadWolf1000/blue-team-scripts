@@ -1,11 +1,44 @@
 #!/bin/bash
 # ============================================================
 # DreadWatch Blue Team - IR Report Generator (Linux)
-# Formats collected evidence into a structured IR report
-# that meets the competition scoring criteria.
 #
-# Usage: sudo bash generate_ir_report.sh [title]
-# Output: /var/log/blueteam_ir/IR_REPORT_<timestamp>.txt
+# WHAT THIS SCRIPT DOES:
+#   Reads all the evidence collected by ir_monitor.sh and
+#   formats it into a structured IR report that directly
+#   matches the 4 things the White Crew scores:
+#     1. Attacker IP addresses
+#     2. Processes the attacker ran
+#     3. User accounts they used
+#     4. Active sessions they hijacked
+#   The report is ready to convert to PDF and submit to Discord.
+#
+# PREREQUISITE:
+#   ir_monitor.sh must have been running to collect evidence.
+#   If it wasn't running, use ir_collector.sh first for a snapshot.
+#
+# HOW TO USE:
+#   Step 1 - Make sure ir_monitor.sh has been running and collecting.
+#            Check: ls /var/log/blueteam_ir/
+#            You should see EVIDENCE.log with content in it.
+#
+#   Step 2 - Run the report generator with a title describing the attack:
+#            sudo bash generate_ir_report.sh "SSH Brute Force Attack"
+#            sudo bash generate_ir_report.sh "RCE via Webshell Upload"
+#            sudo bash generate_ir_report.sh "Credential Theft via FTP"
+#
+#   Step 3 - The report is saved to:
+#            /var/log/blueteam_ir/IR_REPORT_<timestamp>.txt
+#            A quick summary prints to the screen immediately.
+#
+#   Step 4 - Convert the .txt report to PDF for Discord submission:
+#            enscript -p /tmp/report.ps /var/log/blueteam_ir/IR_REPORT_*.txt
+#            ps2pdf /tmp/report.ps /tmp/IR_REPORT.pdf
+#            --- OR if enscript isn't available ---
+#            libreoffice --headless --convert-to pdf /var/log/blueteam_ir/IR_REPORT_*.txt
+#
+#   Step 5 - Upload the PDF to Discord before the deadline.
+#
+# OUTPUT: /var/log/blueteam_ir/IR_REPORT_<timestamp>.txt
 # ============================================================
 
 LOGDIR="/var/log/blueteam_ir"

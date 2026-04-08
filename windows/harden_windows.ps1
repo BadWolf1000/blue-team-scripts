@@ -1,7 +1,47 @@
 # ============================================================
 # DreadWatch Blue Team - Windows Server Hardening Script
 # Targets: BlackPearl (10.x.1.10) and JollyRoger (10.x.2.11)
-# Run as Administrator in PowerShell
+#
+# WHAT THIS SCRIPT DOES:
+#   Hardens a Windows Server against common red team attacks
+#   while keeping all scored services running:
+#     1. Changes all known competition account passwords
+#     2. Changes the built-in Administrator password
+#     3. If on BlackPearl (AD/DC), also changes domain account passwords
+#     4. Disables the Guest account
+#     5. Configures Windows Firewall (enables it, sets host-specific rules)
+#     6. Disables dangerous services (Telnet, RemoteRegistry, etc.)
+#     7. Enables audit logging (logon events, process creation)
+#     8. Hardens RDP to require Network Level Authentication (NLA)
+#     9. Sets account lockout policy (5 attempts = 30 min lockout)
+#    10. Disables SMBv1 (prevents EternalBlue/WannaCry)
+#    11. Audits scheduled tasks for backdoors
+#    12. Lists all local admins for review
+#
+# HOW TO USE:
+#   Step 1 - Pull scripts from GitHub. Open PowerShell as Administrator:
+#            cd C:\
+#            git clone https://github.com/BadWolf1000/blue-team-scripts.git bt
+#            cd bt\windows
+#
+#   Step 2 - Allow script execution for this session:
+#            Set-ExecutionPolicy Bypass -Scope Process -Force
+#
+#   Step 3 - Run the hardening script:
+#            .\harden_windows.ps1
+#
+#   Step 4 - Review the output. Note the new password that was set.
+#            The log is saved to C:\blueteam_harden_<timestamp>.log
+#
+#   Step 5 - Verify scored services are still running:
+#            Get-Service TermService, WinRM           (JollyRoger)
+#            Get-Service TermService, WinRM, NTDS, DNS (BlackPearl)
+#
+#   Step 6 - On BlackPearl ONLY, also run:
+#            .\windows_ad_harden.ps1   (AD-specific hardening)
+#            .\ad_audit.ps1            (find AD attack vectors)
+#
+# NOTE: Run on BOTH BlackPearl and JollyRoger during the first 30 minutes.
 # ============================================================
 
 $ErrorActionPreference = "Continue"

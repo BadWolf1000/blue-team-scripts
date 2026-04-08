@@ -1,16 +1,46 @@
 #!/bin/bash
 # ============================================================
 # DreadWatch Blue Team - Incident Response Evidence Collector
-# Captures everything needed for an IR report:
-#   - Running processes
-#   - Active network connections + IPs
-#   - Logged-in users / active sessions
-#   - Recent auth failures and successes
-#   - Modified files
-#   - Suspicious cron/startup entries
 #
-# Usage: bash ir_collector.sh
-# Output: /tmp/IR_EVIDENCE_<timestamp>/
+# WHAT THIS SCRIPT DOES:
+#   Takes a full point-in-time snapshot of the system's state.
+#   Unlike ir_monitor.sh (which runs continuously), this is a
+#   one-shot script you run when you want to capture a full
+#   picture RIGHT NOW. Good to run the moment you detect
+#   an active attack.
+#   Collects:
+#     - All running processes (who owns them, full command)
+#     - All active network connections and connected IPs
+#     - Who is currently logged in (who, w, last)
+#     - Recent auth log entries (successes + failures)
+#     - Cron jobs for all users
+#     - Files modified in the last 2 hours
+#     - Persistence mechanisms (systemd, rc.local, shell profiles)
+#     - User account audit (/etc/passwd, sudoers)
+#
+# HOW TO USE:
+#   Step 1 - Run it at any time (especially when under attack):
+#            sudo bash ir_collector.sh
+#
+#   Step 2 - It prints a summary to the screen automatically.
+#            Note the output directory path it shows you.
+#
+#   Step 3 - Review the files in /tmp/IR_EVIDENCE_<timestamp>/
+#            Key files:
+#              IR_SUMMARY.txt      <- Start here for a quick overview
+#              connected_ips.txt   <- Attacker IPs (put these in report)
+#              sessions.txt        <- Who was logged in
+#              processes.txt       <- What was running
+#              auth_log.txt        <- Login history
+#              recent_files.txt    <- What files were changed
+#
+#   Step 4 - The evidence is also packaged as a .tar.gz:
+#            /tmp/IR_EVIDENCE_<timestamp>.tar.gz
+#
+#   Step 5 - Use generate_ir_report.sh to turn this into a
+#            formatted report for Discord submission.
+#
+# OUTPUT: /tmp/IR_EVIDENCE_<timestamp>/  and  /tmp/IR_EVIDENCE_<timestamp>.tar.gz
 # ============================================================
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)

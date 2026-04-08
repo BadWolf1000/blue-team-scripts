@@ -1,11 +1,39 @@
 #!/bin/bash
 # ============================================================
 # DreadWatch Blue Team - IP Blocker
-# Blocks individual attacker IPs (subnets NOT allowed per rules)
-# Usage: bash block_ip.sh <IP>              - block one IP
-#        bash block_ip.sh list              - show blocked IPs
-#        bash block_ip.sh unblock <IP>      - remove a block
-#        bash block_ip.sh bulk <file>       - block IPs from file (one per line)
+#
+# WHAT THIS SCRIPT DOES:
+#   Blocks individual attacker IP addresses using iptables.
+#   Blocks both inbound AND outbound traffic to/from that IP.
+#   Keeps a log of all blocks with timestamps.
+#   Validates that you're not accidentally blocking a subnet
+#   (which would violate competition rules).
+#
+# COMPETITION RULE: You CAN block individual IPs.
+#                   You CANNOT block entire subnets (e.g. 10.x.x.0/24).
+#                   This script enforces that rule automatically.
+#
+# HOW TO USE:
+#   --- Block a single attacker IP ---
+#   sudo bash block_ip.sh 10.x.x.x
+#
+#   --- See all currently blocked IPs ---
+#   sudo bash block_ip.sh list
+#
+#   --- Unblock an IP (if you blocked the wrong one) ---
+#   sudo bash block_ip.sh unblock 10.x.x.x
+#
+#   --- Block multiple IPs from a file (one IP per line) ---
+#   sudo bash block_ip.sh bulk /tmp/attacker_ips.txt
+#
+# HOW TO FIND ATTACKER IPs TO BLOCK:
+#   From ir_monitor.sh evidence:  cat /var/log/blueteam_ir/connected_ips.txt
+#   From active connections:      ss -tnp state established
+#   From auth log:                grep "Failed password" /var/log/auth.log
+#
+# NOTE: Blocks are NOT persistent across reboots by default.
+#       If the machine reboots, re-run your blocks.
+#       Log of all blocks: /var/log/blueteam_blocked_ips.txt
 # ============================================================
 
 ACTION="${1:-help}"

@@ -1,15 +1,47 @@
 #!/bin/bash
 # ============================================================
 # DreadWatch Blue Team - Continuous IR Monitor (Linux)
-# Runs in the background and logs evidence in real-time:
-#   - New processes spawned (by whom, from where)
-#   - New network connections (attacker IPs)
-#   - New/changed user sessions
-#   - Auth events (logins, failures, sudo)
-#   - File changes in sensitive directories
 #
-# Usage: sudo bash ir_monitor.sh &
-#        sudo bash ir_monitor.sh stop
+# WHAT THIS SCRIPT DOES:
+#   Runs silently in the background and records evidence the
+#   moment an attacker does something. Everything is tagged
+#   and saved to EVIDENCE.log which feeds directly into the
+#   IR report generator. Captures:
+#     [NEW-CONNECTION]  - Every new external IP that connects
+#     [AUTH-SUCCESS]    - Every successful login (user + source IP)
+#     [AUTH-FAIL]       - Every failed login attempt
+#     [USER-PROCESS]    - Every process run by a non-system user
+#     [SUSPICIOUS-PROC] - Processes matching attack patterns
+#     [SESSION-CHANGE]  - Any new or ended user session
+#     [NEW-LISTENER]    - New ports opened (potential backdoors)
+#
+# HOW TO USE:
+#   Step 1 - Start it immediately at the beginning of the competition:
+#            sudo bash ir_monitor.sh &
+#
+#   Step 2 - Confirm it started:
+#            cat /var/run/bt_monitor.pid   (shows the PID)
+#
+#   Step 3 - Leave it running the entire competition.
+#            The longer it runs, the more evidence it collects.
+#
+#   Step 4 - When you detect an attack, check the evidence log:
+#            cat /var/log/blueteam_ir/EVIDENCE.log
+#            or search for a specific IP:
+#            grep "10.x.x.x" /var/log/blueteam_ir/EVIDENCE.log
+#
+#   Step 5 - When ready to write an IR report, run:
+#            sudo bash generate_ir_report.sh "Describe the attack"
+#
+#   To stop the monitor:
+#            sudo bash ir_monitor.sh stop
+#
+# LOG FILES (all in /var/log/blueteam_ir/):
+#   EVIDENCE.log         <- Main file used for IR reports
+#   sessions.log         <- Session change details
+#   network_connections.log
+#   processes.log
+#   auth_events.log
 # ============================================================
 
 LOGDIR="/var/log/blueteam_ir"

@@ -1,14 +1,53 @@
 # ============================================================
 # DreadWatch Blue Team - Continuous IR Monitor (Windows)
-# Runs in the background and logs evidence in real-time:
-#   - New network connections (attacker IPs)
-#   - New processes launched (user, path, command line)
-#   - Session changes (logon/logoff events)
-#   - Auth failures and successes from Security event log
-#   - New scheduled tasks / service installs
 #
-# Usage: powershell -ExecutionPolicy Bypass -File ir_monitor.ps1
-#        (Run in a dedicated elevated PowerShell window)
+# WHAT THIS SCRIPT DOES:
+#   Runs continuously and logs attacker activity in real-time
+#   to C:\blueteam_ir\EVIDENCE.log. Each event is tagged so
+#   the IR report generator can extract exactly what the White
+#   Crew needs to score your Incident Report.
+#   Monitors every 10 seconds for:
+#     [NEW-CONNECTION]   - New external IP connects to this machine
+#     [AUTH-SUCCESS]     - Successful login (EventID 4624)
+#     [AUTH-FAIL]        - Failed login attempt (EventID 4625)
+#     [EXPLICIT-CREDS]   - Runas / pass-the-hash (EventID 4648)
+#     [USER-PROCESS]     - Process launched by a non-system user
+#     [SUSPICIOUS-PROC]  - Process matching known attack patterns
+#     [SESSION-CHANGE]   - User logged in or session appeared
+#     [NEW-ACCOUNT]      - New user account created (EventID 4720)
+#     [ADMIN-ADDED]      - Account added to Administrators (EventID 4732)
+#     [NEW-SERVICE]      - New service installed (EventID 7045)
+#
+# HOW TO USE:
+#   Step 1 - Open an ELEVATED PowerShell window (Run as Administrator).
+#            Keep this window open the entire competition.
+#
+#   Step 2 - Start the monitor:
+#            Set-ExecutionPolicy Bypass -Scope Process -Force
+#            .\ir_monitor.ps1
+#
+#   Step 3 - You will see events scroll as they happen.
+#            Yellow lines = new evidence captured.
+#
+#   Step 4 - Check the evidence log at any time:
+#            Get-Content C:\blueteam_ir\EVIDENCE.log
+#            or search for a specific IP:
+#            Select-String "10.x.x.x" C:\blueteam_ir\EVIDENCE.log
+#
+#   Step 5 - When ready to write an IR report, open a SECOND
+#            PowerShell window and run:
+#            .\generate_ir_report.ps1 -Title "Describe the attack"
+#            Leave the monitor running - don't close it!
+#
+# TIP: Start this BEFORE hardening so you capture everything
+#      from minute one.
+#
+# LOG FILES (all in C:\blueteam_ir\):
+#   EVIDENCE.log          <- Main file for IR reports
+#   network_connections.log
+#   processes.log
+#   sessions.log
+#   auth_events.log
 # ============================================================
 
 $LogDir   = "C:\blueteam_ir"
