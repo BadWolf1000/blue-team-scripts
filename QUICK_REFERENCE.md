@@ -5,7 +5,7 @@
 ### On EVERY Linux box (Ballast, SilkRoad, PoopDeck, Courier):
 ```bash
 # 1. Pull scripts from GitHub
-git clone https://github.com/BadWol/blueteam-scripts.git /opt/bt
+git clone https://github.com/BadWolf1000/blueteam-scripts.git /opt/bt
 cd /opt/bt/linux && chmod +x *.sh
 
 # 2. Run hardening FIRST
