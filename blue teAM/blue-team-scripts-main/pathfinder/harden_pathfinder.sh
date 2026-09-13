@@ -9,15 +9,10 @@
 # WHAT THIS SCRIPT DOES (in order):
 #   1.  Baselines every local account to /root/pathfinder_baseline/
 #       (passwd, shadow ownership, sudoers, groups, ~/.ssh keys)
-#   2.  Discovers every login-capable account UID>=1000 that is NOT
-#       on the RvB packet's 20-user Artemis list and prompts the
-#       operator to say which of them are legitimate (the RvB 2026
-#       environment ships ~3 accounts that aren't published in the
-#       packet). Those get treated as Artemis users.
-#   3.  Rotates the password for every known Artemis account, every
-#       operator-kept account, and root, using one prompted value
-#   4.  Locks every remaining non-system account so a red-team
-#       backdoor user (BarnacleBart98, etc.) cannot log in
+#   2.  Rotates the password for every known Artemis competition
+#       account plus root, using one prompted value
+#   3.  Locks every non-system account NOT on the known list so a
+#       red-team backdoor user (BarnacleBart98, etc.) cannot log in
 #   4.  Hardens SSH (no root login, MaxAuthTries 3, no X11/Tcp fwd)
 #       and OPTIONALLY moves the admin SSH port to 2222 while
 #       LEAVING the scored port 22 open for the scoring engine
@@ -52,15 +47,9 @@
 #   - Scored ports 22, 21, 80, 3306 stay open on 0.0.0.0
 #
 # USAGE:
-#   sudo bash harden_pathfinder.sh                 # interactive (asks about
-#                                                  # any account not on the
-#                                                  # 20-user packet list)
-#   sudo bash harden_pathfinder.sh --keep alice,bob,carol
-#                                                  # skip the interactive
-#                                                  # prompt: treat these
-#                                                  # extras as legitimate
+#   sudo bash harden_pathfinder.sh                 # interactive
 #   sudo bash harden_pathfinder.sh --alt-ssh 2222  # also open 2222 for admin SSH
-#   sudo bash harden_pathfinder.sh --no-lock       # don't lock any unknown users
+#   sudo bash harden_pathfinder.sh --no-lock       # don't lock unknown users
 #
 # SAFE TO RE-RUN: yes. Everything is idempotent.
 # ============================================================
@@ -69,16 +58,11 @@ set -uo pipefail
 
 ALT_SSH_PORT=""
 DO_LOCK=1
-EXTRA_KEEP=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --alt-ssh) ALT_SSH_PORT="${2:-2222}"; shift 2 ;;
         --no-lock) DO_LOCK=0; shift ;;
-        --keep)    # --keep alice,bob,carol   OR   --keep alice --keep bob
-                   IFS=',' read -r -a _tmp <<< "${2:-}"
-                   EXTRA_KEEP+=("${_tmp[@]}")
-                   shift 2 ;;
-        -h|--help) sed -n '2,60p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
         *) echo "[!] Unknown arg: $1"; exit 1 ;;
     esac
 done
@@ -97,52 +81,6 @@ read -rs CONFIRM_PASS; echo ""
 if [[ "$NEW_PASS" != "$CONFIRM_PASS" ]]; then
     echo "[!] Passwords do not match. Exiting."; exit 1
 fi
-
-# ------------------------------------------------------------
-# DISCOVER LOGIN-CAPABLE ACCOUNTS NOT IN THE PACKET
-# The RvB 2026 environment includes accounts that AREN'T on the
-# published cred sheet. Enumerate them now and ask the operator
-# which are legitimate so they get rotated instead of locked.
-# ------------------------------------------------------------
-ARTEMIS_USERS_TMP=(
-    "MissionDirector" "CapeCom" "FlightDirector" "ArtemisLead"
-    "GuidanceOfficer" "RetroOfficer" "FIDOControl" "EECOMCtrl"
-    "PowerSystems"    "NavSystems" "ThermalEng"   "CommsEng"
-    "TelemetryAnlst"  "OrbitAnalyst" "DataAnlst"  "SensorAnlst"
-    "MedOfficer"      "PayloadSpec"  "EVASpec"    "LifeSupport"
-)
-_ARTEMIS_SET=" ${ARTEMIS_USERS_TMP[*]} root ubuntu wazuh mysql www-data ftp vnc "
-_UNKNOWN_FOUND=()
-while IFS=: read -r uname _ uid _ _ _ shell; do
-    [[ "$uid" -lt 1000 ]] && continue
-    [[ "$shell" == "/usr/sbin/nologin" || "$shell" == "/bin/false" ]] && continue
-    if [[ ! " $_ARTEMIS_SET " =~ " $uname " ]]; then
-        _UNKNOWN_FOUND+=("$uname")
-    fi
-done < /etc/passwd
-
-if [[ ${#_UNKNOWN_FOUND[@]} -gt 0 ]]; then
-    echo ""
-    echo "[!] Login-capable accounts on this box that are NOT on the RvB packet:"
-    for u in "${_UNKNOWN_FOUND[@]}"; do
-        printf '    %-20s uid=%s shell=%s\n' "$u" \
-            "$(id -u "$u" 2>/dev/null)" "$(getent passwd "$u" | cut -d: -f7)"
-    done
-    echo ""
-    echo "[?] Which of these are LEGITIMATE Artemis accounts (space-separated)"
-    echo "    - press ENTER for none / lock them all"
-    echo "    - type 'all' to keep every one of them"
-    echo -n "    keep: "
-    read -r _keep_line
-    if [[ "$_keep_line" == "all" ]]; then
-        EXTRA_KEEP+=("${_UNKNOWN_FOUND[@]}")
-    elif [[ -n "$_keep_line" ]]; then
-        # shellcheck disable=SC2206
-        _tmp=($_keep_line)
-        EXTRA_KEEP+=("${_tmp[@]}")
-    fi
-fi
-unset ARTEMIS_USERS_TMP _ARTEMIS_SET _UNKNOWN_FOUND _keep_line _tmp
 
 TS=$(date +%Y%m%d_%H%M%S)
 LOGDIR="${HOME:-/root}/blueteam_logs"
@@ -208,22 +146,11 @@ cp -a /etc/sudoers "$BASELINE_DIR/sudoers.$TS"
 echo "[+] Baseline written: $BASELINE_DIR/summary.$TS.txt"
 
 # ============================================================
-# 2. ROTATE ARTEMIS PASSWORDS + ROOT + KEPT UNKNOWNS
+# 2. ROTATE ARTEMIS PASSWORDS + ROOT
 # ============================================================
 echo ""
-echo "[*] 2/12  Rotating account passwords ..."
-ROTATE_LIST=("${ARTEMIS_USERS[@]}" "${EXTRA_KEEP[@]}" root)
-# de-duplicate
-declare -A _seen
-ROTATE_UNIQ=()
-for u in "${ROTATE_LIST[@]}"; do
-    [[ -z "$u" ]] && continue
-    if [[ -z "${_seen[$u]:-}" ]]; then
-        _seen[$u]=1
-        ROTATE_UNIQ+=("$u")
-    fi
-done
-for u in "${ROTATE_UNIQ[@]}"; do
+echo "[*] 2/12  Rotating Artemis account passwords ..."
+for u in "${ARTEMIS_USERS[@]}" root; do
     if id "$u" &>/dev/null; then
         if echo "$u:$NEW_PASS" | chpasswd 2>/dev/null; then
             echo "[+] Password rotated: $u"
@@ -232,15 +159,14 @@ for u in "${ROTATE_UNIQ[@]}"; do
         fi
     fi
 done
-unset NEW_PASS CONFIRM_PASS _seen ROTATE_LIST ROTATE_UNIQ
+unset NEW_PASS CONFIRM_PASS
 
 # ============================================================
 # 3. LOCK UNKNOWN ACCOUNTS + KNOWN-BAD ACCOUNTS
 # ============================================================
 echo ""
 echo "[*] 3/12  Locking unknown accounts ..."
-ALLOWED_SET=" ${ARTEMIS_USERS[*]} ${EXTRA_KEEP[*]} root ubuntu wazuh mysql www-data ftp vnc "
-echo "[i] Allow-list this run: $ALLOWED_SET"
+ALLOWED_SET=" ${ARTEMIS_USERS[*]} root ubuntu wazuh mysql www-data ftp vnc "
 
 while IFS=: read -r uname _ uid _ _ homedir shell; do
     [[ "$uid" -lt 1000 ]] && continue
@@ -591,19 +517,9 @@ ACCT_REPORT="$LOGDIR/accounts_monitor_${TS}.txt"
     echo ""
     echo "## Artemis expected users (should stay, password just rotated)"
     for u in "${ARTEMIS_USERS[@]}"; do
-        id "$u" &>/dev/null && printf '  %-20s  uid=%s  groups=%s\n' "$u" \
+        id "$u" &>/dev/null && printf '  %-16s  uid=%s  groups=%s\n' "$u" \
             "$(id -u "$u")" "$(id -Gn "$u" | tr ' ' ',')"
     done
-    echo ""
-    echo "## Extra accounts kept via --keep or interactive prompt (not on RvB packet — WATCH THESE)"
-    if [[ ${#EXTRA_KEEP[@]} -gt 0 ]]; then
-        for u in "${EXTRA_KEEP[@]}"; do
-            id "$u" &>/dev/null && printf '  %-20s  uid=%s  groups=%s\n' "$u" \
-                "$(id -u "$u")" "$(id -Gn "$u" | tr ' ' ',')"
-        done
-    else
-        echo "  (none)"
-    fi
     echo ""
     echo "## Login-capable accounts on box RIGHT NOW"
     awk -F: '$3>=1000 && $7 !~ /(nologin|false)/ {printf "  %-20s uid=%s home=%s shell=%s\n",$1,$3,$6,$7}' /etc/passwd
