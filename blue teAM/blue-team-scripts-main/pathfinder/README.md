@@ -11,8 +11,14 @@ git clone https://github.com/BadWolf1000/blue-team-scripts.git /opt/bt
 cd /opt/bt/pathfinder
 chmod +x *.sh
 
-# Full hardening (prompts for a new master password):
+# Full hardening (prompts for a new master password, then lists any
+# login-capable account NOT on the RvB packet's 20-user list and asks
+# which are legitimate — the RvB 2026 environment ships ~3 accounts
+# that aren't published in the packet, so answer with those names):
 sudo bash harden_pathfinder.sh
+
+# Non-interactive: pass the extras up front (comma-separated or repeated):
+sudo bash harden_pathfinder.sh --keep alice,bob,carol
 
 # Optional: also open an admin SSH port on 2222 (22 stays open for scoring):
 sudo bash harden_pathfinder.sh --alt-ssh 2222
@@ -25,8 +31,9 @@ systemctl status apache2 2>/dev/null || systemctl status nginx
 ## What `harden_pathfinder.sh` does
 
 1. **Baseline accounts** to `/root/pathfinder_baseline/` (passwd, shadow, sudoers, groups, authorized_keys).
-2. **Rotate passwords** for every Artemis account (20 users from the RvB cred sheet) + root using one prompted value.
-3. **Lock unknown accounts** (any non-system login shell not on the allow-list) and force-lock known red-team users (BarnacleBart98 etc.).
+2. **Discover extra Artemis accounts** — enumerates every login-capable UID>=1000 that isn't on the packet's 20-user list and prompts the operator to say which are legitimate (the RvB 2026 environment ships ~3 accounts that aren't in the packet). Kept accounts get password-rotated; the rest get locked. `--keep alice,bob,carol` skips the prompt.
+3. **Rotate passwords** for every packet account, every operator-kept extra, and root — one prompted value.
+4. **Lock unknown accounts** (any remaining non-system login shell not on the allow-list) and force-lock known red-team users (BarnacleBart98 etc.).
 4. **Harden SSH** (no root login, MaxAuthTries 3, no forwarding); leave 22 open for scoring; optionally add an admin port.
 5. **Firewall** with UFW — allow only the scored ports, explicitly deny known red-team ports (23, 1337, 4444, 8888, 9990, VNC).
 6. **Clean Linux run keys** — `/etc/rc.local`, `/etc/profile.d`, every user's `.bashrc/.profile`, all crontabs, `/etc/cron.*`.
